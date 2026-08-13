@@ -53,16 +53,28 @@ def status_color(pct: float) -> str:
 
 
 def fmt_reset(resets_at, now: float) -> str:
-    if not isinstance(resets_at, (int, float)):
-        return ""
+    if not isinstance(resets_at, (int, float)) or not 0 < resets_at < 4e9:
+        return ""  # epoch em ms/lixo estouraria time.localtime no Windows (CRT)
     delta = resets_at - now
     if delta <= 0:
         return "janela resetada"
     if delta < 48 * 3600:
         h, m = int(delta // 3600), int(delta % 3600 // 60)
         return f"reseta em {h}h{m:02d}" if h else f"reseta em {m}min"
-    lt = time.localtime(resets_at)
+    try:
+        lt = time.localtime(resets_at)
+    except (OSError, OverflowError, ValueError):
+        return ""
     return f"reseta {WEEKDAYS_PT[lt.tm_wday]} {lt.tm_hour:02d}:{lt.tm_min:02d}"
+
+
+def fmt_age(seconds: float) -> str:
+    m = int(seconds // 60)
+    if m < 60:
+        return f"{m}min"
+    if m < 48 * 60:
+        return f"{m // 60}h{m % 60:02d}"
+    return f"{m // (24 * 60)}d"
 
 
 class Meter:
@@ -82,6 +94,7 @@ class Meter:
         self.reset_lbl = tk.Label(self.frame, text="", bg=SURFACE, fg=MUTED, font=fonts["small"], anchor="w")
         self.reset_lbl.pack(fill="x")
         self.pct: float | None = None
+        self.dim = False
         self.canvas.bind("<Configure>", lambda _e: self.redraw())
 
     def rounded_bar(self, w: float, color: str) -> None:
@@ -99,17 +112,23 @@ class Meter:
             return
         self.rounded_bar(full, TROUGH)
         if self.pct is not None and self.pct > 0:
-            self.rounded_bar(full * self.pct / 100, status_color(self.pct))
+            self.rounded_bar(full * self.pct / 100, MUTED if self.dim else status_color(self.pct))
 
-    def update(self, win: dict | None, now: float) -> None:
-        if not win:
+    def update(self, win, now: float) -> None:
+        pct = win.get("pct") if isinstance(win, dict) else None
+        if not isinstance(pct, (int, float)):
             self.pct = None
+            self.dim = False
             self.pct_lbl.config(text="—", fg=MUTED)
             self.reset_lbl.config(text="sem dados")
-        else:
-            self.pct = win["pct"]
-            self.pct_lbl.config(text=f"{win['pct']:.0f}%", fg=INK)
-            self.reset_lbl.config(text=fmt_reset(win.get("resets_at"), now))
+            self.redraw()
+            return
+        resets_at = win.get("resets_at")
+        # janela já resetou e não há dado novo → % antigo não vale mais: esmaecer
+        self.dim = isinstance(resets_at, (int, float)) and 0 < resets_at <= now
+        self.pct = max(0.0, min(100.0, float(pct)))
+        self.pct_lbl.config(text=f"{self.pct:.0f}%", fg=MUTED if self.dim else INK)
+        self.reset_lbl.config(text=fmt_reset(resets_at, now))
         self.redraw()
 
 
@@ -153,18 +172,19 @@ class Widget:
                               fg=MUTED, font=fonts["small"], anchor="w")
         self.stamp.pack(fill="x", padx=10, pady=(0, 7))
 
-        for w in (self.root, body, head, self.sprite):
-            w.bind("<Button-1>", self.drag_start)
-            w.bind("<B1-Motion>", self.drag_move)
-            w.bind("<ButtonRelease-1>", lambda _e: self.save_config())
+        # bind só no toplevel: via bindtags cobre todos os filhos (sem disparo duplo)
+        self.root.bind("<Button-1>", self.drag_start)
+        self.root.bind("<B1-Motion>", self.drag_move)
+        self.root.bind("<ButtonRelease-1>", self.drag_end)
         self.root.bind("<Button-3>", self.context_menu)
 
         self.drag_off = (0, 0)
+        self.dragged = False
         self.mtime = 0.0
         self.data: dict = {}
 
         self.root.update_idletasks()
-        w = 240
+        w = round(240 * self.root.winfo_fpixels("1i") / 96)  # acompanha o DPI (fontes escalam)
         h = self.root.winfo_reqheight()
         x, y = self.load_position(w, h)
         self.root.geometry(f"{w}x{h}+{x}+{y}")
@@ -173,29 +193,36 @@ class Widget:
         self.tick()
 
     def animate_sprite(self) -> None:
-        self.sprite.delete("all")
-        bob = self.sprite_frame  # alterna 0/1 px — respiração
-        for r, row in enumerate(SPRITE):
-            for col, ch in enumerate(row):
-                if ch == "X":
-                    x0 = col * SPRITE_CELL + 1
-                    y0 = r * SPRITE_CELL + bob + 1
-                    self.sprite.create_rectangle(x0, y0, x0 + SPRITE_CELL, y0 + SPRITE_CELL,
-                                                 fill=CLAUDE_ORANGE, outline="")
-        self.sprite_frame ^= 1
-        self.root.after(600, self.animate_sprite)
+        try:
+            self.sprite.delete("all")
+            bob = self.sprite_frame  # alterna 0/1 px — respiração
+            for r, row in enumerate(SPRITE):
+                for col, ch in enumerate(row):
+                    if ch == "X":
+                        x0 = col * SPRITE_CELL + 1
+                        y0 = r * SPRITE_CELL + bob + 1
+                        self.sprite.create_rectangle(x0, y0, x0 + SPRITE_CELL, y0 + SPRITE_CELL,
+                                                     fill=CLAUDE_ORANGE, outline="")
+            self.sprite_frame ^= 1
+        finally:
+            self.root.after(600, self.animate_sprite)
 
     # ---- posição/config -------------------------------------------------
     def load_position(self, w: int, h: int) -> tuple[int, int]:
         sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
-        x, y = sw - w - 16, sh - h - 60  # canto inferior direito
+        try:  # Tk só enxerga o monitor primário; validar contra o desktop virtual
+            gm = ctypes.windll.user32.GetSystemMetrics
+            vx, vy, vw, vh = gm(76), gm(77), gm(78), gm(79)  # SM_*VIRTUALSCREEN
+        except (AttributeError, OSError):
+            vx, vy, vw, vh = 0, 0, sw, sh
+        x, y = sw - w - 16, sh - h - 60  # default: canto inferior direito do primário
         try:
             with open(CONFIG_FILE, encoding="utf-8") as fh:
                 cfg = json.load(fh)
             cx, cy = int(cfg["x"]), int(cfg["y"])
-            if -20 <= cx <= sw - 40 and 0 <= cy <= sh - 40:  # fora da tela → default
+            if vx - 20 <= cx <= vx + vw - 40 and vy <= cy <= vy + vh - 40:
                 x, y = cx, cy
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError, KeyError, TypeError):
             pass
         return x, y
 
@@ -209,10 +236,17 @@ class Widget:
 
     # ---- interação -------------------------------------------------------
     def drag_start(self, e: tk.Event) -> None:
+        self.dragged = False
         self.drag_off = (e.x_root - self.root.winfo_x(), e.y_root - self.root.winfo_y())
 
     def drag_move(self, e: tk.Event) -> None:
+        self.dragged = True
         self.root.geometry(f"+{e.x_root - self.drag_off[0]}+{e.y_root - self.drag_off[1]}")
+
+    def drag_end(self, _e: tk.Event) -> None:
+        if self.dragged:  # clique parado não grava config
+            self.dragged = False
+            self.save_config()
 
     def context_menu(self, e: tk.Event) -> None:
         menu = tk.Menu(self.root, tearoff=0, bg=SURFACE, fg=INK_2,
@@ -230,12 +264,14 @@ class Widget:
             mtime = os.path.getmtime(DATA_FILE)
             if mtime != self.mtime:
                 with open(DATA_FILE, encoding="utf-8") as fh:
-                    self.data = json.load(fh)
+                    loaded = json.load(fh)
+                self.data = loaded if isinstance(loaded, dict) else {}
                 self.mtime = mtime
-        except (OSError, ValueError):
+            self.render()
+        except Exception:  # noqa: BLE001 — widget 24/7: nunca deixar o polling morrer
             pass
-        self.render()
-        self.root.after(2000, self.tick)
+        finally:
+            self.root.after(2000, self.tick)
 
     def render(self) -> None:
         now = time.time()
@@ -244,15 +280,15 @@ class Widget:
         else:
             self.five.update(self.data.get("five_hour"), now)
             self.seven.update(self.data.get("seven_day"), now)
-            updated = self.data.get("updated_at") or 0
-            if not updated:
+            updated = self.data.get("updated_at")
+            if not isinstance(updated, (int, float)) or not 0 < updated < 4e9:
                 self.stamp.config(text="aguardando dados do Claude Code…")
                 return
             lt = time.localtime(updated)
             text = f"atualizado às {lt.tm_hour:02d}:{lt.tm_min:02d}"
             age = now - updated
             if age > STALE_AFTER_S:
-                text += f" · parado há {int(age // 60)}min"
+                text += f" · parado há {fmt_age(age)}"
             self.stamp.config(text=text)
 
 

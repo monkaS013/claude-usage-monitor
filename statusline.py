@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 
 DATA_DIR = os.path.join(os.path.expanduser("~"), ".claude", "usage-monitor")
 
@@ -20,6 +21,13 @@ def atomic_write_json(path: str, payload: dict) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, ensure_ascii=False)
+        for _ in range(3):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                # o leitor (widget) pode segurar o destino por alguns ms no Windows
+                time.sleep(0.01)
         os.replace(tmp, path)
     except OSError:
         try:
@@ -29,6 +37,21 @@ def atomic_write_json(path: str, payload: dict) -> None:
         raise
 
 
+def cleanup_tmp(now: float) -> None:
+    # .tmp órfãos de processos mortos entre mkstemp e replace
+    try:
+        for name in os.listdir(DATA_DIR):
+            if name.endswith(".tmp"):
+                path = os.path.join(DATA_DIR, name)
+                try:
+                    if now - os.path.getmtime(path) > 3600:
+                        os.unlink(path)
+                except OSError:
+                    pass
+    except OSError:
+        pass
+
+
 def window(raw: dict | None) -> dict | None:
     # rate_limits pode faltar até a 1ª resposta de API; cada janela pode faltar.
     if not isinstance(raw, dict):
@@ -36,25 +59,38 @@ def window(raw: dict | None) -> dict | None:
     pct = raw.get("used_percentage")
     if not isinstance(pct, (int, float)):
         return None
-    return {"pct": max(0.0, min(100.0, float(pct))), "resets_at": raw.get("resets_at")}
+    resets = raw.get("resets_at")
+    if not isinstance(resets, (int, float)) or not 0 < resets < 4e9:
+        resets = None  # epoch em ms/lixo estouraria time.localtime no Windows
+    return {"pct": max(0.0, min(100.0, float(pct))), "resets_at": resets}
 
 
 def main() -> None:
-    import time
+    # stdin pode vir como cp1252 no spawn da statusline; caminhos no JSON têm acento
+    raw = sys.stdin.buffer.read().decode("utf-8", "replace")
+    data = json.loads(raw or "{}")
 
-    data = json.loads(sys.stdin.read() or "{}")
-
+    now = time.time()
     os.makedirs(DATA_DIR, exist_ok=True)
-    atomic_write_json(os.path.join(DATA_DIR, "last_stdin.json"), data)
+    cleanup_tmp(now)
 
     limits = data.get("rate_limits") or {}
     five = window(limits.get("five_hour"))
     seven = window(limits.get("seven_day"))
     if five or seven:
-        atomic_write_json(
-            os.path.join(DATA_DIR, "rate_limits.json"),
-            {"five_hour": five, "seven_day": seven, "updated_at": int(time.time())},
-        )
+        try:
+            atomic_write_json(
+                os.path.join(DATA_DIR, "rate_limits.json"),
+                {"five_hour": five, "seven_day": seven, "updated_at": int(now)},
+            )
+        except OSError:
+            pass  # colisão com o leitor: perde 1 ciclo, o próximo refresh corrige
+    else:
+        # sem rate_limits (1ª resposta ainda não veio ou o formato mudou) → stdin p/ debug
+        try:
+            atomic_write_json(os.path.join(DATA_DIR, "last_stdin.json"), data)
+        except OSError:
+            pass
 
     model = (data.get("model") or {}).get("display_name") or "?"
     ctx = (data.get("context_window") or {}).get("used_percentage")
