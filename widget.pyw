@@ -32,17 +32,17 @@ WEEKDAYS_PT = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
 # Mascote pixel-art do Claude Code (cor terracota da marca), animado por "bob"
 CLAUDE_ORANGE = "#d97757"
 SPRITE = [
-    "..XX......XX..",
-    "..XX......XX..",
-    ".XXXXXXXXXXXX.",
-    ".XXXXXXXXXXXX.",
-    "XXXXXXXXXXXXXX",
-    "XXXXXXXXXXXXXX",
-    ".XXXXXXXXXXXX.",
-    ".XXXXXXXXXXXX.",
-    "..XX..XX..XX..",
+    ".XXXXXXXXXXX.",
+    ".XXXXXXXXXXX.",
+    ".XX.XXXXX.XX.",
+    ".XXXXXXXXXXX.",
+    "XXXXXXXXXXXXX",
+    "XXXXXXXXXXXXX",
+    ".XXXXXXXXXXX.",
+    "..XXX...XXX..",
+    "..X.X...X.X..",
 ]
-SPRITE_CELL = 3
+SPRITE_CELL = 4  # base; escala com o DPI (cell efetivo em self.cell)
 
 
 def status_color(pct: float) -> str:
@@ -140,6 +140,13 @@ class Widget:
         self.root.attributes("-topmost", True)
         self.root.configure(bg=BORDER)  # borda de 1px via padding do frame externo
 
+        # fontes/geometria escalam com o DPI; o sprite é pixel-art fixo → escalar junto,
+        # senão em telas 125/150% o mascote fica minúsculo ao lado do texto (Segoe UI)
+        self.scale = self.root.winfo_fpixels("1i") / 96
+        # half-up: round() do Python é half-to-even (round(4.5)=4) e deixaria o ícone defasado
+        self.cell = max(SPRITE_CELL, int(SPRITE_CELL * self.scale + 0.5))
+        self.bob_amp = max(1, int(self.scale + 0.5))  # amplitude da "respiração" também escala
+
         body = tk.Frame(self.root, bg=SURFACE)
         body.pack(fill="both", expand=True, padx=1, pady=1)
 
@@ -152,8 +159,9 @@ class Widget:
 
         head = tk.Frame(body, bg=SURFACE)
         head.pack(fill="x", padx=10, pady=(7, 2))
-        self.sprite = tk.Canvas(head, width=len(SPRITE[0]) * SPRITE_CELL + 2,
-                                height=len(SPRITE) * SPRITE_CELL + 3, bg=SURFACE, highlightthickness=0)
+        self.sprite = tk.Canvas(head, width=len(SPRITE[0]) * self.cell + 2,
+                                height=len(SPRITE) * self.cell + self.bob_amp + 2,
+                                bg=SURFACE, highlightthickness=0)
         self.sprite.pack(side="left", padx=(0, 6))
         self.sprite_frame = 0
         close = tk.Label(head, text="✕", bg=SURFACE, fg=MUTED, font=fonts["label"], cursor="hand2")
@@ -184,7 +192,7 @@ class Widget:
         self.data: dict = {}
 
         self.root.update_idletasks()
-        w = round(240 * self.root.winfo_fpixels("1i") / 96)  # acompanha o DPI (fontes escalam)
+        w = round(240 * self.scale)  # acompanha o DPI (fontes escalam)
         h = self.root.winfo_reqheight()
         x, y = self.load_position(w, h)
         self.root.geometry(f"{w}x{h}+{x}+{y}")
@@ -195,13 +203,14 @@ class Widget:
     def animate_sprite(self) -> None:
         try:
             self.sprite.delete("all")
-            bob = self.sprite_frame  # alterna 0/1 px — respiração
+            cell = self.cell
+            bob = self.sprite_frame * self.bob_amp  # alterna 0/bob_amp px — respiração
             for r, row in enumerate(SPRITE):
                 for col, ch in enumerate(row):
                     if ch == "X":
-                        x0 = col * SPRITE_CELL + 1
-                        y0 = r * SPRITE_CELL + bob + 1
-                        self.sprite.create_rectangle(x0, y0, x0 + SPRITE_CELL, y0 + SPRITE_CELL,
+                        x0 = col * cell + 1
+                        y0 = r * cell + bob + 1
+                        self.sprite.create_rectangle(x0, y0, x0 + cell, y0 + cell,
                                                      fill=CLAUDE_ORANGE, outline="")
             self.sprite_frame ^= 1
         finally:
