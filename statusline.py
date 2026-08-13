@@ -96,7 +96,9 @@ def main() -> None:
     ctx = (data.get("context_window") or {}).get("used_percentage")
     parts = [f"[{model}]"]
     if isinstance(ctx, (int, float)):
-        parts.append(f"ctx {ctx:.0f}%")
+        # marca quando o contexto fica grande (cache_read cresce e vira o maior gasto)
+        mark = " !!" if ctx >= 75 else (" !" if ctx >= 55 else "")
+        parts.append(f"ctx {ctx:.0f}%{mark}")
     parts.append(f"5h {five['pct']:.0f}%" if five else "5h —")
     parts.append(f"sem {seven['pct']:.0f}%" if seven else "sem —")
     print(" · ".join(parts))
