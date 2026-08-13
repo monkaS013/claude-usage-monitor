@@ -11,4 +11,4 @@
 | T7 | Atalho Startup + iniciar widget (R4) | T3, T5 | .lnk na pasta Startup; widget rodando |
 | T8 | Registro vault + memória + commit final | T5–T7 | nota do projeto atualizada; commits atômicos |
 
-Status: T1 em andamento.
+Status (23/07 18:1x): T1–T4 ✅ (T4 = statusLine em settings.json + backup `settings.json.bak-statusline-20260723`; ativa em sessão nova — a sessão corrente não carrega a quente). T7 ✅ (atalho `Claude Usage Monitor.lnk` na pasta Startup). Extra pedido pelo Vinicius mid-turn: mascote pixel-art animado no cabeçalho (v2 maior após feedback "está ruim"). T5 pendente de sessão nova do Claude Code (gabarito do print do app: ~47% sessão / ~69% semana). T6 workflow `review-usage-monitor` rodando. T8 pendente.

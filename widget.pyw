@@ -29,6 +29,21 @@ STATUS = [(95, "#d03b3b"), (85, "#ec835a"), (60, "#fab219"), (0, "#0ca30c")]
 
 WEEKDAYS_PT = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
 
+# Mascote pixel-art do Claude Code (cor terracota da marca), animado por "bob"
+CLAUDE_ORANGE = "#d97757"
+SPRITE = [
+    "..XX......XX..",
+    "..XX......XX..",
+    ".XXXXXXXXXXXX.",
+    ".XXXXXXXXXXXX.",
+    "XXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXX",
+    ".XXXXXXXXXXXX.",
+    ".XXXXXXXXXXXX.",
+    "..XX..XX..XX..",
+]
+SPRITE_CELL = 3
+
 
 def status_color(pct: float) -> str:
     for floor, color in STATUS:
@@ -118,9 +133,13 @@ class Widget:
 
         head = tk.Frame(body, bg=SURFACE)
         head.pack(fill="x", padx=10, pady=(7, 2))
-        tk.Label(head, text="Claude — uso do plano", bg=SURFACE, fg=INK_2, font=fonts["title"]).pack(side="left")
+        self.sprite = tk.Canvas(head, width=len(SPRITE[0]) * SPRITE_CELL + 2,
+                                height=len(SPRITE) * SPRITE_CELL + 3, bg=SURFACE, highlightthickness=0)
+        self.sprite.pack(side="left", padx=(0, 6))
+        self.sprite_frame = 0
         close = tk.Label(head, text="✕", bg=SURFACE, fg=MUTED, font=fonts["label"], cursor="hand2")
         close.pack(side="right")
+        tk.Label(head, text="Claude", bg=SURFACE, fg=INK_2, font=fonts["title"]).pack(side="left")
         close.bind("<Button-1>", lambda _e: self.quit())
         close.bind("<Enter>", lambda _e: close.config(fg=INK))
         close.bind("<Leave>", lambda _e: close.config(fg=MUTED))
@@ -134,7 +153,7 @@ class Widget:
                               fg=MUTED, font=fonts["small"], anchor="w")
         self.stamp.pack(fill="x", padx=10, pady=(0, 7))
 
-        for w in (self.root, body, head):
+        for w in (self.root, body, head, self.sprite):
             w.bind("<Button-1>", self.drag_start)
             w.bind("<B1-Motion>", self.drag_move)
             w.bind("<ButtonRelease-1>", lambda _e: self.save_config())
@@ -150,7 +169,21 @@ class Widget:
         x, y = self.load_position(w, h)
         self.root.geometry(f"{w}x{h}+{x}+{y}")
         self.root.deiconify()
+        self.animate_sprite()
         self.tick()
+
+    def animate_sprite(self) -> None:
+        self.sprite.delete("all")
+        bob = self.sprite_frame  # alterna 0/1 px — respiração
+        for r, row in enumerate(SPRITE):
+            for col, ch in enumerate(row):
+                if ch == "X":
+                    x0 = col * SPRITE_CELL + 1
+                    y0 = r * SPRITE_CELL + bob + 1
+                    self.sprite.create_rectangle(x0, y0, x0 + SPRITE_CELL, y0 + SPRITE_CELL,
+                                                 fill=CLAUDE_ORANGE, outline="")
+        self.sprite_frame ^= 1
+        self.root.after(600, self.animate_sprite)
 
     # ---- posição/config -------------------------------------------------
     def load_position(self, w: int, h: int) -> tuple[int, int]:
@@ -212,6 +245,9 @@ class Widget:
             self.five.update(self.data.get("five_hour"), now)
             self.seven.update(self.data.get("seven_day"), now)
             updated = self.data.get("updated_at") or 0
+            if not updated:
+                self.stamp.config(text="aguardando dados do Claude Code…")
+                return
             lt = time.localtime(updated)
             text = f"atualizado às {lt.tm_hour:02d}:{lt.tm_min:02d}"
             age = now - updated
