@@ -14,7 +14,7 @@ Escopo: **Medium** — spec breve, design inline (acima no PROJECT.md), tasks em
 
 Com o Claude Code em uso, o widget mostra percentuais idênticos aos do `/usage` e atualiza sozinho; após fechar e reabrir o Windows/widget, posição preservada e último valor exibido com carimbo.
 
-## Suposições registradas (aprovadas por silêncio na entrevista de 23/07)
+## Suposições registradas
 
 - Código em `~/dev/claude-usage-monitor`; dados em `~/.claude/usage-monitor/`.
 - Python 3.14 do sistema (`C:\Python314`), Tkinter incluso, zero dependências pip.
