@@ -1,31 +1,33 @@
-# Monitor de uso do Claude
+# Claude usage monitor
 
-Widget flutuante (Windows 11) com os percentuais **reais** do plano Claude — sessão 5h e semana, os mesmos números do `/usage` — sem abrir o app Claude.
+*[Português](README.pt-BR.md)*
+
+A floating Windows 11 widget that shows the **real** usage of your Claude plan — the 5-hour session and the week, the same numbers as `/usage` — without opening the Claude app.
 
 <p align="center">
-  <img src="docs/demo.gif" alt="Widget de uso do Claude: mascote pixel-art animado e barras da sessão de 5h e da semana" width="320">
+  <img src="docs/demo.gif" alt="Claude usage widget: animated pixel-art mascot and bars for the 5-hour session and the week" width="320">
 </p>
 
-## Como funciona
+## How it works
 
 ```
 Claude Code ──stdin──▶ statusline.py ──▶ ~/.claude/usage-monitor/rate_limits.json ──▶ widget.pyw
 ```
 
-- `statusline.py`: configurado como `statusLine` em `~/.claude/settings.json`. A cada refresh do Claude Code, grava os `rate_limits` oficiais e mostra `[Modelo] · ctx X% · 5h Y% · sem Z%` no rodapé do Claude Code.
-- `widget.pyw`: janela sempre-no-topo (Tkinter, stdlib pura) com 2 barras, countdown de reset, carimbo de atualização e o mascote. Arrastável (posição persiste); clique-direito → Fechar; instância única.
-- **Zero rede, zero token**: só o canal oficial e documentado da statusline.
+- `statusline.py`: set as `statusLine` in `~/.claude/settings.json`. On every Claude Code refresh it writes the official `rate_limits` and prints `[Model] · ctx X% · 5h Y% · wk Z%` at the bottom of Claude Code.
+- `widget.pyw`: an always-on-top window (Tkinter, pure stdlib) with two bars, a reset countdown, a refresh timestamp, and the mascot. Draggable (position persists); right-click → Close; single instance.
+- **Zero network, zero tokens**: only the official, documented statusline channel.
 
-## Instalar / religar
+## Install / restart
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-Cria o atalho na pasta Startup (auto-start no logon) e inicia o widget. Desinstalar: apagar o atalho `Claude Usage Monitor.lnk` da pasta Startup (`Win+R` → `shell:startup`).
+Creates the Startup shortcut (auto-start on logon) and launches the widget. To uninstall, delete the `Claude Usage Monitor.lnk` shortcut from the Startup folder (`Win+R` → `shell:startup`).
 
-## Limitações conhecidas (v1)
+## Known limitations (v1)
 
-- Atualiza enquanto algum Claude Code roda (statusline é event-driven); parado, congela no último valor com aviso "parado há X".
-- A statusline só ativa em **sessão nova** do Claude Code, e `rate_limits` só chega após a 1ª resposta da sessão.
-- Sem sub-quotas semanais por modelo (a statusline oficial não as entrega).
+- It updates while a Claude Code session is running (the statusline is event-driven). Idle, it freezes on the last value with a "stale for X" note.
+- The statusline only starts in a **new** Claude Code session, and `rate_limits` arrive only after the session's first response.
+- No weekly per-model sub-quotas (the official statusline doesn't expose them).
