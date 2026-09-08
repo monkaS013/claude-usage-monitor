@@ -2,7 +2,7 @@
 
 *[Português](README.pt-BR.md)*
 
-A floating Windows 11 widget that shows the real usage of your Claude plan (the 5-hour session and the week, the same numbers as `/usage`) without opening the Claude app.
+A floating Windows 11 widget that shows the real usage of your Claude plan (the 5-hour session and the week, read from the same official statusline channel `/usage` reports from) without opening the Claude app.
 
 <p align="center">
   <img src="docs/demo.gif" alt="Claude usage widget: animated pixel-art mascot and bars for the 5-hour session and the week" width="320">

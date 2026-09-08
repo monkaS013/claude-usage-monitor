@@ -2,7 +2,7 @@
 
 *[English](README.md)*
 
-Widget flutuante (Windows 11) com os percentuais reais do plano Claude (sessão 5h e semana, os mesmos números do `/usage`) sem abrir o app Claude.
+Widget flutuante (Windows 11) com os percentuais reais do plano Claude (sessão 5h e semana, lidos do mesmo canal oficial de statusline que o `/usage` usa) sem abrir o app Claude.
 
 <p align="center">
   <img src="docs/demo.gif" alt="Widget de uso do Claude: mascote pixel-art animado e barras da sessão de 5h e da semana" width="320">
