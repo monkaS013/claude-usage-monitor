@@ -2,7 +2,7 @@
 
 *[Português](README.pt-BR.md)*
 
-A floating Windows 11 widget that shows the **real** usage of your Claude plan — the 5-hour session and the week, the same numbers as `/usage` — without opening the Claude app.
+A floating Windows 11 widget that shows the real usage of your Claude plan (the 5-hour session and the week, the same numbers as `/usage`) without opening the Claude app.
 
 <p align="center">
   <img src="docs/demo.gif" alt="Claude usage widget: animated pixel-art mascot and bars for the 5-hour session and the week" width="320">
@@ -16,7 +16,7 @@ Claude Code ──stdin──▶ statusline.py ──▶ ~/.claude/usage-monitor
 
 - `statusline.py`: set as `statusLine` in `~/.claude/settings.json`. On every Claude Code refresh it writes the official `rate_limits` and prints `[Model] · ctx X% · 5h Y% · wk Z%` at the bottom of Claude Code.
 - `widget.pyw`: an always-on-top window (Tkinter, pure stdlib) with two bars, a reset countdown, a refresh timestamp, and the mascot. Draggable (position persists); right-click → Close; single instance.
-- **Zero network, zero tokens**: only the official, documented statusline channel.
+- **Zero network, zero tokens.** It uses only the official, documented statusline channel.
 
 ## Install / restart
 

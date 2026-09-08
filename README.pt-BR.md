@@ -2,7 +2,7 @@
 
 *[English](README.md)*
 
-Widget flutuante (Windows 11) com os percentuais **reais** do plano Claude — sessão 5h e semana, os mesmos números do `/usage` — sem abrir o app Claude.
+Widget flutuante (Windows 11) com os percentuais reais do plano Claude (sessão 5h e semana, os mesmos números do `/usage`) sem abrir o app Claude.
 
 <p align="center">
   <img src="docs/demo.gif" alt="Widget de uso do Claude: mascote pixel-art animado e barras da sessão de 5h e da semana" width="320">
@@ -16,7 +16,7 @@ Claude Code ──stdin──▶ statusline.py ──▶ ~/.claude/usage-monitor
 
 - `statusline.py`: configurado como `statusLine` em `~/.claude/settings.json`. A cada refresh do Claude Code, grava os `rate_limits` oficiais e mostra `[Modelo] · ctx X% · 5h Y% · sem Z%` no rodapé do Claude Code.
 - `widget.pyw`: janela sempre-no-topo (Tkinter, stdlib pura) com 2 barras, countdown de reset, carimbo de atualização e o mascote. Arrastável (posição persiste); clique-direito → Fechar; instância única.
-- **Zero rede, zero token**: só o canal oficial e documentado da statusline.
+- **Zero rede, zero token.** Usa só o canal oficial e documentado da statusline.
 
 ## Instalar / religar
 
